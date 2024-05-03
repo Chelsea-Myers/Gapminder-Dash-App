@@ -1,11 +1,7 @@
-from dash import Dash, dcc, html, Input, Output, ctx
-import pandas as pd
+from dash import Dash, dcc, html, Input, Output
 import plotly.express as px
 
-filepath = "https://raw.githubusercontent.com/plotly/datasets/master/volcano_db.csv"
-df = pd.read_csv(filepath, encoding="latin")
-
-external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
+df = px.data.gapminder()
 
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
@@ -13,48 +9,48 @@ server = app.server
 
 app.layout = html.Div(
     [
-        html.Header(
-            "Geographic Distribution of Volcanoes by Height",
-            style={"font-size": "30px", "textAlign": "center"},
+        html.H4("Animated GDP and population over decades"),
+        html.P("Select an animation:"),
+        dcc.RadioItems(
+            id="selection",
+            options=["GDP - Scatter", "Population - Bar"],
+            value="GDP - Scatter",
         ),
-        html.Div("Minimum Volcano Height", style={"font-size": "20px"}),
-        "Meters ",
-        dcc.Input(id="meter", value=2000, type="number", step=1),
-        " Feet ",
-        dcc.Input(
-            id="feet",
-            value=6561.7,
-            type="number",
-        ),
-        dcc.Graph(id="map"),
-    ],
-    style={"margin": 10, "maxWidth": 800},
+        dcc.Loading(dcc.Graph(id="graph"), type="cube"),
+    ]
 )
 
 
 @app.callback(
-    Output("meter", "value"),
-    Output("feet", "value"),
-    Output("map", "figure"),
-    Input("meter", "value"),
-    Input("feet", "value"),
+    Output("graph", "figure"), Input("selection", "value")
 )
-def sync_input(meter, feet):
-    if ctx.triggered_id == "meter":
-        feet = None if meter is None else round((float(meter) * 3.28084), 0)
-    else:
-        meter = None if feet is None else round((float(feet) / 3.28084), 1)
-
-    fig = px.scatter_geo(
-        data_frame=df.loc[df["Elev"] >= meter],
-        lat="Latitude",
-        lon="Longitude",
-        size="Elev",
-        hover_name="Volcano Name",
-        projection="natural earth",
-    )
-
-    return meter, feet, fig
+def display_animated_graph(selection):
+    animations = {
+        "GDP - Scatter": px.scatter(
+            df,
+            x="gdpPercap",
+            y="lifeExp",
+            animation_frame="year",
+            animation_group="country",
+            size="pop",
+            color="continent",
+            hover_name="country",
+            log_x=True,
+            size_max=55,
+            range_x=[100, 100000],
+            range_y=[25, 90],
+        ),
+        "Population - Bar": px.bar(
+            df,
+            x="continent",
+            y="pop",
+            color="continent",
+            animation_frame="year",
+            animation_group="country",
+            range_y=[0, 4000000000],
+        ),
+    }
+    return animations[selection]
 
 
 if __name__ == "__main__":
